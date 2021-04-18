@@ -92,5 +92,120 @@ static int anetTcpGenericConnect(char *err,char *addr, int port, int flags){
     setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
     sa.sin_family = AF_INET;
     sa.sin_port = htons(port);
-    if (inet_aton(addr))
+    if (inet_aton(addr, &sa.sin_addr) == 0) {
+        struct hostent *he;
+        he = gethostbyname(addr);
+        if(he == NULL){
+            anetSetError(err, "can't resolve: %s\n", addr);
+            close(s);
+            return ANET_ERR;
+        }
+        memcpy(&sa.sin_addr, he->h_addr, sizeof(struct in_addr));
+    }
+    if (flags & ANET_CONNECT_NONBLOCK) {
+        if (anetNonBlock(err,s) != ANET_OK)
+            return ANET_ERR;
+    }
+    if (connect(s, (struct sockaddr*)&sa, sizeof(sa)) == -1) {
+        if (errno == EINPROGRESS &&
+            flags & ANET_CONNECT_NONBLOCK)
+            return s;
+
+        anetSetError(err, "connect: %s\n", strerror(errno));
+        close(s);
+        return ANET_ERR;
+    }
+    return s;
 }
+
+int anetTcpConnect(char *err, char *addr, int port){
+    return anetTcpGenericConnect(err,addr,port,ANET_CONNECT_NONE);
+}
+
+int anetTcpNonBlockConnect(char *err, char *addr, int port)
+{
+    return anetTcpGenericConnect(err,addr,port,ANET_CONNECT_NONBLOCK);
+}
+
+int anetRead(int fd, char *buf, int count){
+    int nread, totlen = 0;
+    while(totlen != count) {
+        nread = read(fd, buf, count - totlen);
+        if(nread == 0)return totlen;
+        if(nread == -1)return -1;
+        totlen += nread;
+        buf += nread;
+    }
+    return totlen;
+}
+
+int anetWrite(int fd, char *buf, int count) {
+    int nwritten, totlen = 0;
+    while(totlen != count){
+        nwritten = write(fd,buf,count-totlen);
+        if(nwritten == 0)return totlen;
+        if(nwritten == -1)return -1;
+        totlen += nwritten;
+        buf += nwritten;
+    }
+    return totlen;
+}
+
+int anetTcpServer(char *err, int port, char *bindaddr){
+    int s,on = 1;
+    struct sockaddr_in sa;
+    if ((s = socket(AF_INET,SOCK_STREAM,0)) == -1) {
+        anetSetError(err, "socket: %s\n", strerror(errno));
+        return ANET_ERR;
+    }
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) {
+        anetSetError(err, "setsockopt SO_REUSEADDR: %s\n", strerror(errno));
+        close(s);
+        return ANET_ERR;
+    }
+    memset(&sa,0,sizeof(sa));
+    a.sin_family = AF_INET;
+    sa.sin_port = htons(port);
+    sa.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bindaddr) {
+        if (inet_aton(bindaddr, &sa.sin_addr) == 0) {
+            anetSetError(err, "Invalid bind address\n");
+            close(s);
+            return ANET_ERR;
+        }
+    }
+    if (bind(s, (struct sockaddr*)&sa, sizeof(sa)) == -1){
+        anetSetError(err, "bind: %s\n", strerror(errno));
+        close(s);
+        return ANET_ERR;
+    }
+    if (listen(s, 64) == -1) {
+        anetSetError(err, "listen: %s\n", strerror(errno));
+        close(s);
+        return ANET_ERR;
+    }
+    return s;
+}
+
+int anetAccept(char *err, int serversock, char *ip, int *port) {
+    int fd;
+    struct sockaddr_in sa;
+    unsigned int salen;
+    while(1){
+        saLen = sizeof(sa);
+        fd = accept(serversock, (struct sockaddr*)&sa, &salen);
+        if(fd == -1){
+            if(errno == EINTR)
+                continue;
+            else {
+                anetSetError(err, "accept: %s\n", strerror(errno));
+                return ANET_ERR;
+            }
+        }
+        break;
+    }
+    if (ip) strcpy(ip,inet_ntoa(sa.sin_addr));
+    if (port) *port = ntohs(sa.sin_port);
+    return fd;
+}
+
