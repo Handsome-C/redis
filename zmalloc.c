@@ -74,4 +74,14 @@ void zfree(void *ptr) {
     free(realptr);
 #endif
 }
+char *zstrdup(const char *s) {
+    size_t l = strlen(s)+1;
+    char *p = zmalloc(l);
 
+    memcpy(p,s,l);
+    return p;
+}
+
+size_t zmalloc_used_memory(void) {
+    return used_memory;
+}

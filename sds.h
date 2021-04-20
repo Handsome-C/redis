@@ -10,3 +10,19 @@ struct sdshdr {
 };
 sds sdsnewlen(const void *init, size_t initlen);
 sds sdsnew(const char *init);
+sds sdsempty();
+size_t sdslen(const sds s);
+sds sdsdup(const sds s);
+sds sdscatlen(sds s, void *t, size_t len);
+sds sdscat(sds s, char *t);
+sds sdscpylen(sds s, char *t, size_t len);
+sds sdscpy(sds s, char *t);
+sds sdscatprintf(sds s, const char *fmt, ...);
+sds sdstrim(sds s, const char *cset);
+sds sdsrange(sds s, long start, long end);
+void sdsupdatelen(sds s);
+int sdscmp(sds s1, sds s2);
+sds *sdssplitlen(char *s, int len, char *sep, int seplen, int *count);
+void sdstolower(sds s);
+
+#endif
