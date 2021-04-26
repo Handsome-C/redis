@@ -122,7 +122,7 @@ static sds cliReadLine(int fd){
         }else if ((ret == 0) || (c == '\n')) {
             break;
         }else {
-            line = sdscatlen()
+            line = sdscatlen(line)
         }
     }
 }
