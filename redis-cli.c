@@ -163,7 +163,7 @@ static int cliReadBulkReply(int fd){
 static int cliReadMultiBulkReply(int fd){
     sds replylen = cliReadLine(fd);
     int elements, c = 1;
-    
+
 }
 
 
